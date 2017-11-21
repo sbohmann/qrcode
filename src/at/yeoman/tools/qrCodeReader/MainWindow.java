@@ -54,10 +54,9 @@ class MainWindow
         panel.setLayout(new BorderLayout());
         JPanel toolbar = new JPanel();
         panel.add(toolbar, BorderLayout.NORTH);
-        JButton pasteButton = createPasteButton();
-        toolbar.add(pasteButton);
-        JButton loadButton = createLoadButton();
-        toolbar.add(loadButton);
+        toolbar.add(createPasteButton());
+        toolbar.add(createLoadButton());
+        toolbar.add(createClearButton());
         createTextArea();
         panel.add(textarea, BorderLayout.CENTER);
         createImageView();
@@ -90,6 +89,13 @@ class MainWindow
     {
         JButton button = new JButton("load");
         button.addActionListener(this::loadButtonPressed);
+        return button;
+    }
+    
+    private JButton createClearButton()
+    {
+        JButton button = new JButton("clear");
+        button.addActionListener(this::clearButtonPressed);
         return button;
     }
     
@@ -148,6 +154,12 @@ class MainWindow
                 loadImageFile(selectedFile);
             }
         }
+    }
+    
+    private void clearButtonPressed(ActionEvent actionEvent)
+    {
+        imageView.setImage(null);
+        textarea.setText("");
     }
     
     private JFileChooser createFileChooser()
