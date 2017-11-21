@@ -5,26 +5,34 @@ import com.google.zxing.NotFoundException;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
 class MainWindow
 {
+    private static final String ApplicationName = "QR Code Interpreter";
+    private static final Color Transparent = new Color(0, true);
+    
     private volatile File lastDirectory;
     
     private JFrame window;
     private JTextArea textarea;
+    private ImageView imageView;
     
     public static void main(String[] args)
     {
         try
         {
+            System.setProperty("apple.awt.application.name", ApplicationName);
+    
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         }
         catch (Exception exception)
@@ -41,7 +49,7 @@ class MainWindow
         
         System.out.println("Last directory: " + lastDirectory);
         
-        window = new JFrame("QR Code Interpreter");
+        window = new JFrame(ApplicationName);
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
         JPanel toolbar = new JPanel();
@@ -52,6 +60,8 @@ class MainWindow
         toolbar.add(loadButton);
         createTextArea();
         panel.add(textarea, BorderLayout.CENTER);
+        createImageView();
+        panel.add(imageView, BorderLayout.EAST);
         panel.setPreferredSize(new Dimension(800, 600));
         window.setContentPane(panel);
         window.pack();
@@ -89,19 +99,28 @@ class MainWindow
         textarea.setEditable(false);
         textarea.setLineWrap(true);
         textarea.setWrapStyleWord(true);
-        textarea.setBorder(new LineBorder(new Color(0, true), 12));
+        textarea.setBorder(new LineBorder(Transparent, 12));
+    }
+    
+    private void createImageView()
+    {
+        imageView = new ImageView();
+        imageView.setBackground(Color.black);
+        imageView.setOpaque(true);
+        imageView.setPreferredSize(new Dimension(300, 300));
     }
     
     private void pasteButtonPressed(ActionEvent actionEvent)
     {
+        imageView.setImage(null);
+    
         Transferable transferable = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
         if (transferable != null && transferable.isDataFlavorSupported(DataFlavor.imageFlavor))
         {
             try
             {
-                System.out.println("before 1");
-                handleImage((Image) transferable.getTransferData(DataFlavor.imageFlavor));
-                System.out.println("after 2");
+                Image image = (Image) transferable.getTransferData(DataFlavor.imageFlavor);
+                handleImage(createBufferedImage(image));
             }
             catch (UnsupportedFlavorException | IOException exception)
             {
@@ -119,6 +138,8 @@ class MainWindow
         JFileChooser fileChooser = createFileChooser();
         if (fileChooser.showOpenDialog(window) == JFileChooser.APPROVE_OPTION)
         {
+            imageView.setImage(null);
+            
             lastDirectory = fileChooser.getCurrentDirectory();
             
             File selectedFile = fileChooser.getSelectedFile();
@@ -145,7 +166,7 @@ class MainWindow
     {
         try
         {
-            Image image = ImageIO.read(selectedFile);
+            BufferedImage image = ImageIO.read(selectedFile);
             if (image != null)
             {
                 handleImage(image);
@@ -162,8 +183,10 @@ class MainWindow
         }
     }
     
-    private void handleImage(Image image)
+    private void handleImage(BufferedImage image)
     {
+        imageView.setImage(image);
+        
         try
         {
             textarea.setText(QrCodeReader.readQrCode(image));
@@ -176,6 +199,25 @@ class MainWindow
         {
             exception.printStackTrace();
             textarea.setText("Unable to read QR code\n\n" + exception.getMessage());
+        }
+    }
+    
+    private static BufferedImage createBufferedImage(Image image)
+    {
+        if (image instanceof BufferedImage)
+        {
+            return (BufferedImage) image;
+        }
+        else
+        {
+            BufferedImage result = new BufferedImage(
+                image.getWidth(null),
+                image.getHeight(null),
+                BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = result.createGraphics();
+            graphics.drawImage(image, 0, 0, null);
+            graphics.dispose();
+            return result;
         }
     }
 }
