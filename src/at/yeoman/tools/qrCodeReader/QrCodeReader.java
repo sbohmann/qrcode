@@ -11,9 +11,9 @@ import com.google.zxing.common.HybridBinarizer;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-public class QrCodeReader
+class QrCodeReader
 {
-    public static String readQrCode(Image image) throws NotFoundException
+    static String readQrCode(Image image) throws NotFoundException
     {
         BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(
             new BufferedImageLuminanceSource(createBufferedImage(image))));

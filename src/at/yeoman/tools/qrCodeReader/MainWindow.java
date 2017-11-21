@@ -3,6 +3,7 @@ package at.yeoman.tools.qrCodeReader;
 
 import com.google.zxing.NotFoundException;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
@@ -10,10 +11,14 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
+import java.io.File;
 import java.io.IOException;
 
-public class MainWindow
+class MainWindow
 {
+    private volatile File lastDirectory;
+    
+    private JFrame window;
     private JTextArea textarea;
     
     public static void main(String[] args)
@@ -32,11 +37,19 @@ public class MainWindow
     
     private void run()
     {
-        JFrame window = new JFrame("QR Code Interpreter");
+        lastDirectory = PreferenceStorage.load();
+        
+        System.out.println("Last directory: " + lastDirectory);
+        
+        window = new JFrame("QR Code Interpreter");
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
-        JButton button = createButton();
-        panel.add(button, BorderLayout.NORTH);
+        JPanel toolbar = new JPanel();
+        panel.add(toolbar, BorderLayout.NORTH);
+        JButton pasteButton = createPasteButton();
+        toolbar.add(pasteButton);
+        JButton loadButton = createLoadButton();
+        toolbar.add(loadButton);
         createTextArea();
         panel.add(textarea, BorderLayout.CENTER);
         panel.setPreferredSize(new Dimension(800, 600));
@@ -45,12 +58,28 @@ public class MainWindow
         window.setLocationRelativeTo(null);
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setVisible(true);
+    
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                PreferenceStorage.save(lastDirectory);
+            }
+        });
     }
     
-    private JButton createButton()
+    private JButton createPasteButton()
     {
         JButton button = new JButton("paste");
-        button.addActionListener(this::buttonPressed);
+        button.addActionListener(this::pasteButtonPressed);
+        return button;
+    }
+    
+    private JButton createLoadButton()
+    {
+        JButton button = new JButton("load");
+        button.addActionListener(this::loadButtonPressed);
         return button;
     }
     
@@ -63,7 +92,7 @@ public class MainWindow
         textarea.setBorder(new LineBorder(new Color(0, true), 12));
     }
     
-    private void buttonPressed(ActionEvent actionEvent)
+    private void pasteButtonPressed(ActionEvent actionEvent)
     {
         Transferable transferable = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
         if (transferable != null && transferable.isDataFlavorSupported(DataFlavor.imageFlavor))
@@ -85,6 +114,54 @@ public class MainWindow
         }
     }
     
+    private void loadButtonPressed(ActionEvent actionEvent)
+    {
+        JFileChooser fileChooser = createFileChooser();
+        if (fileChooser.showOpenDialog(window) == JFileChooser.APPROVE_OPTION)
+        {
+            lastDirectory = fileChooser.getCurrentDirectory();
+            
+            File selectedFile = fileChooser.getSelectedFile();
+            if (selectedFile != null && selectedFile.isFile())
+            {
+                loadImageFile(selectedFile);
+            }
+        }
+    }
+    
+    private JFileChooser createFileChooser()
+    {
+        if (lastDirectory != null && lastDirectory.isDirectory())
+        {
+            return new JFileChooser(lastDirectory);
+        }
+        else
+        {
+            return new JFileChooser();
+        }
+    }
+    
+    private void loadImageFile(File selectedFile)
+    {
+        try
+        {
+            Image image = ImageIO.read(selectedFile);
+            if (image != null)
+            {
+                handleImage(image);
+            }
+            else
+            {
+                textarea.setText("Unsupported file format\n\n" + selectedFile.getAbsolutePath());
+            }
+        }
+        catch (Exception exception)
+        {
+            exception.printStackTrace();
+            textarea.setText("Unable to load image\n\n" + exception.getMessage());
+        }
+    }
+    
     private void handleImage(Image image)
     {
         try
@@ -93,8 +170,12 @@ public class MainWindow
         }
         catch (NotFoundException exception)
         {
+            textarea.setText("No QR code found in image");
+        }
+        catch (Exception exception)
+        {
             exception.printStackTrace();
-            textarea.setText(exception.getMessage());
+            textarea.setText("Unable to read QR code\n\n" + exception.getMessage());
         }
     }
 }
